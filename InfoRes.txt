@@ -1,0 +1,226 @@
+*********************************************************** TDD archivo principal llamada a funcion unica ejecucion codigo **********************************************
+import unittest
+import loginCV
+
+class ClaroVideoTestClass(unittest.TestCase):
+    def test_checkLogin(self):
+        rutaActual = loginCV.loginClaroVideo("https://www.clarovideo.com/mexico/user.php?login")
+        self.assertEqual(rutaActual,"https://www.clarovideo.com/mexico/payment")
+
+if __name__ == '__main__':
+    unittest.main()
+
+************************************************************ TDD archivo loginCV -- Selenium con try except **************************************************************
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+
+def loginClaroVideo(url):
+    rutaChrome = "C:\\Users\\mgarcia\\Documents\\RepoQA\\chromedriver.exe"
+    navegador = webdriver.Chrome(executable_path=rutaChrome)
+    navegador.get(url)
+    navegador.maximize_window()
+    navegador.implicitly_wait(5)
+    navegador.find_element_by_xpath("//input[@type='text'] [@name='email']").clear()  # //input [@name="email"]
+    navegador.find_element_by_xpath("//input [@type='text'] [@name='email']").send_keys("amcopruebas.mg@gmail.com")
+    navegador.find_element_by_xpath("//input[@type='password'] [@name='pass']").clear()  # //input [@name="pass"]
+    navegador.find_element_by_xpath("//input[@type='password'] [@name='pass']").send_keys("Salase_01")
+    navegador.find_element_by_xpath("//button [@class='btn btn-padding-email ']").click()  # Encuentra el boton con class='btn btn-padding-email'
+    try:
+        element1 = WebDriverWait(navegador, 10).until(EC.presence_of_element_located((By.XPATH, "//*[@id='menuUser']/li/a[1]/span/div")))
+        if element1:
+            element = element1
+            print("Encontrado 1er Xpath")
+        else:
+            element2 = WebDriverWait(navegador, 10).until(EC.presence_of_element_located((By.XPATH, "//*[@id='menuUser']/li/a[1]/a/span[2]/div")))#//*[@id='menuUser']/li/a[1]/span/div
+            element = element2
+            print("Encontrado 2do Xpath")
+        if element:
+            urlactual=navegador.current_url
+    except TimeoutException:
+        print("Tiempo de respuesta agotado")
+        urlactual = navegador.current_url
+
+    return urlactual
+
+*********************************************************************** BDD --- archivo archivo .Features uso variables ***********************************************************************
+Feature: Login Gmail
+
+   Scenario: Successful login Gmail
+    Given having the google "https://www.google.com/" find login gmail
+    When the email "garciamaz@gmail.com" is entered click continue
+    And the password ".Salase*01" is entered click next
+    Then click on the button to start session enter the login page
+
+************************************************************************ BDD --- archivo .py Maneja el comportamiento  ***********************************************************
+
+from behave import given, when, then
+from metodoGmailLogin import ModulesGmailLogin
+
+@given('having the google "{url}" find login gmail')
+def step_impl(context,url):
+    context.model = ModulesGmailLogin()# model = getattr(context, "model", None)#if not model:
+    context.model.buscarInicioSessionGmail(url,"gmail")
+
+@when('the email "{email}" is entered click continue')
+def step_impl(context,email):
+    context.model.insertarEmail(email)
+
+@when('the password "{password}" is entered click next')
+def step_impl(context,password):
+    context.model.insertarPassword(password)
+
+@then('click on the button to start session enter the login page')
+def step_impl(context):
+    loginExitoso = context.model.ingresarLogin()
+    assert loginExitoso == 'https://mail.google.com/mail/u/0/#inbox'
+
+********************************************************************** BDD archivo .py Define Class y Funciones *****************************************************
+
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+
+class ModulesGmailLogin(object):
+
+    def __init__(self):
+        print("estoy en __init__")
+        rutaChromeExe = "C:\\Users\\mgarcia\\Documents\\RepoQA\\chromedriver.exe"
+        self.navegador = webdriver.Chrome(executable_path=rutaChromeExe)
+
+    def buscarInicioSessionGmail(self,rutaGoogle,parametroBusqueda):
+        print("pase por get_current_url")
+        self.navegador.get(rutaGoogle)
+        self.navegador.find_element_by_xpath("//input[@name='q']").clear()  # Encuentra el tag con name q  limpia
+        self.navegador.find_element_by_xpath("//input[@name='q']").send_keys(parametroBusqueda)  # Escribe gmail en el cuadro de texto
+        self.navegador.find_element_by_xpath("//input[@name='q']").send_keys(Keys.ENTER)  # presiona enter
+        self.navegador.implicitly_wait(5)
+        self.navegador.find_element_by_xpath("//a[@class ='gb_Hd gb_1 gb_kb']").click()  # click boton iniciar sesion
+
+    def insertarEmail(self,email):
+        print("pase por insertEmail")
+        self.navegador.find_element_by_xpath("//input[@type='email'][@class ='whsOnd zHQkBf']").clear()  # limpia el input para el email
+        self.navegador.find_element_by_xpath("//input[@type='email'][@class ='whsOnd zHQkBf']").send_keys(email)  # Escribe gmail en el cuadro de texto
+        self.navegador.find_element_by_xpath("//span[@class='RveJvd snByac']").click()  # boton siguiente luego de agregar email
+
+    def insertarPassword(self,password):
+        print("pase por insertPassword")
+        self.navegador.implicitly_wait(5)
+        self.navegador.find_element_by_xpath("//*[@id='password']/div[1]/div/div[1]/input").clear()
+        self.navegador.find_element_by_xpath("//*[@id='password']/div[1]/div/div[1]/input").send_keys(password)
+        self.navegador.maximize_window()
+        self.navegador.find_element_by_xpath("//*[@id='passwordNext']/content/span").click()  # boton siguiente luego de agregar password
+
+    def ingresarLogin(self):
+        self.navegador.implicitly_wait(5)
+        self.navegador.find_element_by_xpath("//*[@id='rso']/div[1]/div/div[1]/div/div/div[1]/a/div/cite").click()  # boton opciones para ir a gmail
+        urlActual = self.navegador.current_url
+        return urlActual
+
+********************************************************************* BDD con tabla Mostrar *******************************************************************
+
+Feature: Productos
+
+   Scenario: Mostrar Productos
+         Given mostrar productos por id apiCompras2 validos:
+            | id  |nombre   | codRes |
+            | 1   | Nicholas| 200    |
+            | 2   | Elvin   | 200    |
+            | 1   | Jass    | 200    |
+     When mostrar productos por id apiCompras2 invalido
+        | id  | nombre | codRes |
+        | 0   | Jose  | 404    |
+     Then mostrar todos los productos
+
+************************************************************ BDD archivo .py Consume tablas del feature ****************************************************************
+
+from behave import given, when, then
+from hamcrest import assert_that, equal_to
+import requests
+
+@given('mostrar productos por id apiCompras2 validos')
+def step_impl(context):
+    for setDatos in context.table:
+        #nombre = setDatos["id"]
+        nombre = setDatos["nombre"]
+        #print(nombre)
+        urlApi = "http://127.0.0.1:5000/user/"+nombre #**** PENDINTE VALIDAR QUE ESTE CORRIENDO API 11
+        #urlApi = "http://anapioficeandfire.com/api/books/" + nombre
+        response = requests.get(urlApi)# print(setDatos["codRes"])# print(response.status_code)
+        codigoNumerico = int(setDatos["codRes"])#Se hace entero el codigo contenido en el set de datos para luego validarlo con el cod de la respuesta del request
+        #print(response)
+        assert_that(response.status_code,equal_to(codigoNumerico))
+    #pass
+
+@when('mostrar productos por id apiCompras2 invalido')
+def step_impl(context):
+    for setDatos in context.table:
+        #nombre = setDatos["id"]
+        nombre = setDatos["nombre"]
+        #print(nombre)
+        #urlApi = "http://anapioficeandfire.com/api/books"+nombre
+        urlApi = "http://127.0.0.1:5000/user/" + nombre
+        response = requests.get(urlApi)# print(setDatos["codRes"])# print(response.status_code)
+        codigoNumerico = int(setDatos["codRes"])#Se hace entero el codigo contenido en el set de datos para luego validarlo con el cod de la respuesta del request
+        #print(response)
+        assert_that(response.status_code,equal_to(codigoNumerico))
+    #pass
+
+@then('mostrar todos los productos')
+def step_impl(context):
+    #urlApi = "http://anapioficeandfire.com/api/books"#http://anapioficeandfire.com/api/books #http://127.0.0.1:5000/user/
+    urlApi = "http://127.0.0.1:5000/user/all"
+    response = requests.get(urlApi)
+    assert response.status_code == 200
+
+******************************************************************* TDD calculator inicializado y validando valores *****************************************************************
+
+import unittest
+from calculator import Calculator
+
+class TestMyCalculator(unittest.TestCase):
+
+    def setUp(self):
+        self.calcular = Calculator()
+
+    def test_initial_value(self):#Test valida la inicializacion del valor = 0
+        self.assertEqual(0,self.calcular.value)#se comprueba que el valor sea 0
+
+
+    def test_add_method(self):#Test para comprobar la suma
+        self.calcular.add(1,3) #se ejecuta el metodo
+        self.assertEqual(4,self.calcular.value)#se comprueba si el valor es el que se espera
+
+    def test_subtraction(self):
+        self.calcular.subtraction(2,4)
+        self.assertEqual(-2,self.calcular.value)
+
+    def test_multiplication(self):
+        self.calcular.multiplication(2,4)
+        self.assertEqual(8,self.calcular.value)
+
+    def test_division(self):
+        self.calcular.division(8, 2)
+        self.assertEqual(4, self.calcular.value)
+
+if __name__ == '__main__':
+    unittest.main()
+
+******************************************************************* TDD ejecutando y calculando valores  *********************************************************************************
+class Calculator:
+    def __init__(self):
+        self.value = 0
+
+    def add(self,a,b):
+        self.value = (a + b)
+
+    def subtraction(self,a,b):
+        self.value = (a - b)
+
+    def multiplication(self,a,b):
+        self.value = (a * b)
+
+    def division(self,a,b):
+        self.value = (a / b)
